@@ -15,7 +15,8 @@ func main() {
 
 	fmt.Printf("Run %v\n", os.Args[1:])
 
-	disallow("open")
+	// Uncommenting this will cause the open syscall to return with Operation Not Permitted error
+	// disallow("open")
 
 	cmd := exec.Command(os.Args[1], os.Args[2:]...)
 	cmd.Stderr = os.Stderr
