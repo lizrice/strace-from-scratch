@@ -9,6 +9,7 @@ ENV GO111MODULE=on \
 WORKDIR /build
 
 COPY go.mod go.sum *.go LICENSE ./
+COPY syscalls/ ./syscalls/
 
 RUN go build -o main .
 

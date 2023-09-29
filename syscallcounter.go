@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strace/syscalls"
 	"text/tabwriter"
 )
 
@@ -36,7 +37,6 @@ func (s syscallCounter) print() {
 }
 
 func (s syscallCounter) getName(syscallID uint64) string {
-	//TODO: syscall name
-	name := fmt.Sprintf("_%d_", syscallID)
+	name := syscalls.GetName(syscallID)
 	return name
 }
