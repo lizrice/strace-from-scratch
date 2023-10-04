@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,7 +26,10 @@ func main() {
 	cmd.Start()
 	err := cmd.Wait() // cmd is paused
 	if err != nil {
-		fmt.Printf("Wait returned: %v\n", err)
+		var e *exec.ExitError
+		if !errors.As(err, &e) || e.ProcessState.Sys().(syscall.WaitStatus).StopSignal() != syscall.SIGTRAP {
+			panic(err) // expected "stop signal: trace/breakpoint trap"
+		}
 	}
 
 	var regs syscall.PtraceRegs
