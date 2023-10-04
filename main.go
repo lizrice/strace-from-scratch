@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		var e *exec.ExitError
 		if !errors.As(err, &e) || e.ProcessState.Sys().(syscall.WaitStatus).StopSignal() != syscall.SIGTRAP {
-			panic(err) // expected "stop signal: trace/breakpoint trap"
+			panic(err) // expected "stop signal: trace/breakpoint trap" (5)
 		}
 	}
 
@@ -38,7 +38,8 @@ func main() {
 
 	for {
 		if err = syscall.PtraceGetRegs(pid, &regs); err != nil {
-			if err.Error() == "no such process" {
+			var e syscall.Errno
+			if errors.As(err, &e) && e == syscall.ESRCH { // "no such process" (3)
 				break
 			}
 			panic(err)
