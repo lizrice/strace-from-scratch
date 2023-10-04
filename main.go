@@ -101,6 +101,21 @@ func main() {
 			ss.inc(syscallNum)
 		}
 
+		if false && !exit && regs.Rdi == 3 { //regs.Orig_rax == syscall.SYS_READ && fileDescriptors[int(regs.Rdi)] == "LICENSE" {
+			data := []byte("x")
+			//addr := uintptr(unsafe.Pointer(&data))
+			addr := uintptr(regs.Rsi)
+			if c, err := syscall.PtracePokeText(pid, addr, data); err != nil {
+				panic(err)
+			} else {
+				fmt.Printf("poked %d\n", c)
+			}
+			regs.Rax = 1
+			if err = syscall.PtraceSetRegs(pid, &regs); err != nil {
+				panic(err)
+			}
+		}
+
 		err = syscall.PtraceSyscall(pid, 0) // wait for next syscall to begin or exit
 		if err != nil {
 			panic(err)
