@@ -36,6 +36,8 @@ func main() {
 	pid := cmd.Process.Pid
 	exit := true
 
+	fileDescriptor := make(map[uint64]string)
+
 	for {
 		if err = syscall.PtraceGetRegs(pid, &regs); err != nil {
 			var e syscall.Errno
@@ -44,6 +46,9 @@ func main() {
 			}
 			panic(err)
 		}
+
+		var syscallNum uint64 = regs.Orig_rax
+
 		if exit {
 
 			// https://man7.org/linux/man-pages/man2/syscall.2.html
@@ -56,17 +61,44 @@ func main() {
 			//   ────────────────────────────────────────────────────────────
 			//   x86-64      syscall           rax     rax  rdx  -      5
 
-			f := ""
-			if regs.Orig_rax == syscall.SYS_OPEN {
-				fmt.Printf("%d %x\n", regs.Rdi, regs.Rdi)
-				path := readPtraceText(pid, uintptr(regs.Rdi))
-				fd := int(regs.Rax)
-				f = fmt.Sprintf(`("%s") => %d`, path, fd)
+			str := ss.getName(syscallNum)
+
+			var arg1 uint64 = regs.Rdi
+			var arg2 uint64 = regs.Rsi
+			var arg3 uint64 = regs.Rdx
+			var retVal uint64 = regs.Rax
+
+			switch syscallNum {
+			case syscall.SYS_GETUID, syscall.SYS_GETEUID:
+				// uid_t get[e]uid(void)
+				str += fmt.Sprintf(` () => %d`, retVal)
+			case syscall.SYS_OPEN:
+				// int open(const char *path, int oflag, ...)
+				path := readPtraceText(pid, uintptr(arg1))
+				fd := retVal
+				str += fmt.Sprintf(` ("%s") => FD %d`, path, fd)
+				fileDescriptor[fd] = fmt.Sprintf(`fd%d<"%s">`, fd, path)
+			case syscall.SYS_READ:
+				// ssize_t read(int fildes, void *buf, size_t nbyte)
+				fd := fileDescriptor[arg1]
+				if retVal <= arg3 {
+					buf := readPtraceTextBuf(pid, uintptr(arg2), int(retVal))
+					buf = fmt.Sprintf("%q", buf)
+					if len(buf) > 40 {
+						buf = buf[0:18] + `" ... "` + buf[len(buf)-19:]
+					}
+					str += fmt.Sprintf(` (%s, %d, %d) => %d: %s`, fd, arg2, arg3, retVal, buf)
+				} else {
+					str += fmt.Sprintf(` (%s, %d, %d) => %d`, fd, arg2, arg3, retVal)
+				}
+			case syscall.SYS_LSEEK:
+				// off_t lseek(int fildes, off_t offset, int whence)
+				fd := fileDescriptor[arg1]
+				str += fmt.Sprintf(` (%s, %d, %d) => %d`, fd, arg2, arg3, retVal)
 			}
 
-			name := ss.getName(regs.Orig_rax)
-			fmt.Printf("%s %s\n", name, f)
-			ss.inc(regs.Orig_rax)
+			fmt.Printf("%s\n", str)
+			ss.inc(syscallNum)
 		}
 
 		err = syscall.PtraceSyscall(pid, 0) // wait for next syscall to begin or exit
@@ -97,4 +129,12 @@ func readPtraceText(pid int, addr uintptr) string {
 		s += string(buf)
 	}
 	return s
+}
+
+func readPtraceTextBuf(pid int, addr uintptr, length int) string {
+	buf := make([]byte, length)
+	if _, err := syscall.PtracePeekText(pid, addr, buf); err != nil {
+		panic(err)
+	}
+	return string(buf)
 }
