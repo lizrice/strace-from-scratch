@@ -101,20 +101,25 @@ func main() {
 			ss.inc(syscallNum)
 		}
 
-		if false && !exit && regs.Rdi == 3 { //regs.Orig_rax == syscall.SYS_READ && fileDescriptors[int(regs.Rdi)] == "LICENSE" {
-			data := []byte("x")
-			//addr := uintptr(unsafe.Pointer(&data))
-			addr := uintptr(regs.Rsi)
-			if c, err := syscall.PtracePokeText(pid, addr, data); err != nil {
-				panic(err)
-			} else {
-				fmt.Printf("poked %d\n", c)
-			}
-			regs.Rax = 1
-			if err = syscall.PtraceSetRegs(pid, &regs); err != nil {
-				panic(err)
-			}
-		}
+		/*
+			// 3 == syscall.SYS_READ
+			if exit && syscallNum == 3 { //regs.Orig_rax == syscall.SYS_READ && fileDescriptors[int(regs.Rdi)] == "LICENSE" {
+				var retVal uint64 = regs.Rax
+				data := []byte(strings.Repeat("x", int(retVal)-1))
+				data = append(data, byte(0))
+				addr := uintptr(unsafe.Pointer(&data))
+				//addr := uintptr(regs.Rsi)
+				//addr := uintptr(&data)
+				//if c, err := syscall.PtracePokeText(pid, addr, data); err != nil {
+				//	panic(err)
+				//} else {
+				//	fmt.Printf("poked %d\n", c)
+				//}
+				regs.Rax = uint64(addr)
+				if err = syscall.PtraceSetRegs(pid, &regs); err != nil {
+					panic(err)
+				}
+			}  */
 
 		err = syscall.PtraceSyscall(pid, 0) // wait for next syscall to begin or exit
 		if err != nil {
