@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
+	"unsafe"
 )
 
 func main() {
@@ -47,7 +49,7 @@ func main() {
 			panic(err)
 		}
 
-		var syscallNum uint64 = regs.Orig_rax
+		syscallNum := int(regs.Orig_rax)
 
 		if exit {
 
@@ -66,6 +68,9 @@ func main() {
 			var arg1 uint64 = regs.Rdi
 			var arg2 uint64 = regs.Rsi
 			var arg3 uint64 = regs.Rdx
+			var arg4 uint64 = regs.R10
+			var arg5 uint64 = regs.R8
+			var arg6 uint64 = regs.R9
 			var retVal uint64 = regs.Rax
 
 			switch syscallNum {
@@ -95,31 +100,35 @@ func main() {
 				// off_t lseek(int fildes, off_t offset, int whence)
 				fd := fileDescriptor[arg1]
 				str += fmt.Sprintf(` (%s, %d, %d) => %d`, fd, arg2, arg3, retVal)
+			case syscall.SYS_MMAP:
+				// void * mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset)
+				str += fmt.Sprintf(` (%d, %d, %d, %d, %d, %d)`,
+					arg1, arg2, arg3, arg4, arg5, arg6)
 			}
 
 			fmt.Printf("%s\n", str)
 			ss.inc(syscallNum)
 		}
 
-		/*
-			// 3 == syscall.SYS_READ
-			if exit && syscallNum == 3 { //regs.Orig_rax == syscall.SYS_READ && fileDescriptors[int(regs.Rdi)] == "LICENSE" {
-				var retVal uint64 = regs.Rax
-				data := []byte(strings.Repeat("x", int(retVal)-1))
-				data = append(data, byte(0))
-				addr := uintptr(unsafe.Pointer(&data))
-				//addr := uintptr(regs.Rsi)
-				//addr := uintptr(&data)
-				//if c, err := syscall.PtracePokeText(pid, addr, data); err != nil {
-				//	panic(err)
-				//} else {
-				//	fmt.Printf("poked %d\n", c)
-				//}
-				regs.Rax = uint64(addr)
-				if err = syscall.PtraceSetRegs(pid, &regs); err != nil {
-					panic(err)
-				}
-			}  */
+		// 3 == syscall.SYS_READ
+		if syscallNum == 3 { //regs.Orig_rax == syscall.SYS_READ && fileDescriptors[int(regs.Rdi)] == "LICENSE" {
+			//var retVal uint64 = regs.Rax
+			retVal := 10240
+			data := []byte(strings.Repeat("x", int(retVal)-1))
+			data = append(data, byte(0))
+			addr := uintptr(unsafe.Pointer(&data))
+			//addr := uintptr(regs.Rsi)
+			//addr := uintptr(&data)
+			//if c, err := syscall.PtracePokeText(pid, addr, data); err != nil {
+			//	panic(err)
+			//} else {
+			//	fmt.Printf("poked %d\n", c)
+			//}
+			regs.Rax = uint64(addr)
+			if err = syscall.PtraceSetRegs(pid, &regs); err != nil {
+				panic(err)
+			}
+		}
 
 		err = syscall.PtraceSyscall(pid, 0) // wait for next syscall to begin or exit
 		if err != nil {
@@ -140,7 +149,7 @@ func main() {
 func readPtraceText(pid int, addr uintptr) string {
 	s := ""
 	buf := []byte{1}
-	for i := addr; buf[0] != byte(0); i++ {
+	for i := addr; buf[0] != 0; i++ {
 		if c, err := syscall.PtracePeekText(pid, i, buf); err != nil {
 			panic(err)
 		} else if c == 0 {

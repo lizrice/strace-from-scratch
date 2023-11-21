@@ -5,8 +5,8 @@ import (
 	"syscall"
 )
 
-func GetName(syscallID uint64) string {
-	if name, ok := syscallNames[int(syscallID)]; ok {
+func GetName(syscallID int) string {
+	if name, ok := syscallNames[syscallID]; ok {
 		return name
 	} else {
 		return fmt.Sprintf("_%d_", syscallID)
