@@ -1,0 +1,15 @@
+name: CI
+
+on:
+  push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          strace tail -n1 LICENSE
+          docker build -t strace --build-arg GO_VERSION=$(make goversion) .
+          docker run -i --rm strace tail -n1 LICENSE
+
